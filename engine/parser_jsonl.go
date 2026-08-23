@@ -1,9 +1,8 @@
-package main
+package engine
 
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -17,6 +16,30 @@ type ContentType struct {
 // JSONLParser implements Parser for JSONL transcript files
 type JSONLParser struct {
 	Filters map[string]bool // Which content types to include
+
+	// Decorate, when set, styles a transcript part for the surface that will
+	// read Block.Content -- the CLI wires tview markup here for the TUI.
+	// nil means plain text. HTML surfaces never read Content for transcripts
+	// (they consume Block.Data *TranscriptData), so hosts leave this nil.
+	Decorate func(partType, content, meta string) string
+}
+
+// plainPart is the nil-Decorate default: content with minimal, markup-free
+// framing. Chosen to be readable if a surface ever does print it, and to
+// carry the same information the TUI decoration carries.
+func plainPart(partType, content, meta string) string {
+	switch partType {
+	case "diff":
+		filename := meta
+		if idx := strings.LastIndex(meta, "/"); idx >= 0 {
+			filename = meta[idx+1:]
+		}
+		return "--- " + filename + " ---\n" + content
+	case "question":
+		return "[?] " + content
+	default:
+		return content
+	}
 }
 
 // Detect checks if file is JSONL
@@ -174,29 +197,6 @@ func extractStructuredPatch(msg map[string]interface{}) string {
 	return sb.String()
 }
 
-// colorizeDiffLines applies tview color tags to diff lines for inline rendering
-func colorizeDiffLines(diff string) string {
-	var sb strings.Builder
-	for _, line := range strings.Split(diff, "\n") {
-		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
-			// Added line - green background
-			sb.WriteString(fmt.Sprintf("[white:#2d5a2d]%s[-:-]\n", line))
-		} else if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
-			// Removed line - magenta background
-			sb.WriteString(fmt.Sprintf("[white:#5a2d5a]%s[-:-]\n", line))
-		} else if strings.HasPrefix(line, "@@") {
-			// Hunk header - dim
-			sb.WriteString(fmt.Sprintf("[#808080]%s[-]\n", line))
-		} else if strings.HasPrefix(line, "---") || strings.HasPrefix(line, "+++") {
-			// Skip file headers (we have our own header)
-			continue
-		} else {
-			// Context line
-			sb.WriteString(line + "\n")
-		}
-	}
-	return strings.TrimSuffix(sb.String(), "\n")
-}
 
 // Parse reads a JSONL file and extracts conversation blocks
 func (p *JSONLParser) Parse(content string) []Block {
@@ -742,17 +742,7 @@ func (p *JSONLParser) ExtractAssistantContent(msg map[string]interface{}) string
 	return strings.Join(textParts, "\n")
 }
 
-// Additional inline pattern for function references
-var codePatternBracket = regexp.MustCompile(`\[([^\]]+\(\))\]`) // [funcName()]
 
-// formatAssistantContent applies markdown formatting plus function highlighting
-func formatAssistantContent(text string, termWidth int) string {
-	// First apply standard markdown formatting from formatter.go
-	text = annotatedLinesToString(formatMarkdown(text, termWidth))
-	// Then highlight [funcName()] patterns - yellow for function references
-	text = codePatternBracket.ReplaceAllString(text, "[yellow]$1[-]")
-	return text
-}
 
 // CreateTurnBlock creates a Block from a ConversationTurn
 // All parts (user, diff, assistant) are combined into a single scrollable view
@@ -762,34 +752,20 @@ func (p *JSONLParser) CreateTurnBlock(turn *ConversationTurn, turnNumber int) Bl
 
 	var contentParts []string
 
+	decorate := p.Decorate
+	if decorate == nil {
+		decorate = plainPart
+	}
+
 	for _, part := range turn.Parts {
 		switch part.Type {
-		case "user":
-			// User message: white text on gray background (chat bubble style)
-			contentParts = append(contentParts, fmt.Sprintf("[white:#303030]%s[-:-:-]", part.Content))
-
-		case "diff":
-			// Extract filename for header
-			filename := part.Meta
-			if idx := strings.LastIndex(part.Meta, "/"); idx >= 0 {
-				filename = part.Meta[idx+1:]
-			}
-			// Add diff with separator header and colorized lines
-			diffHeader := fmt.Sprintf("[#808080]--- %s ---[-]", filename)
-			colorizedDiff := colorizeDiffLines(part.Content)
-			contentParts = append(contentParts, diffHeader+"\n"+colorizedDiff)
-
-		case "assistant":
-			// Add assistant content immediately to preserve chronological order
-			formatted := formatAssistantContent(part.Content, 0)
-			contentParts = append(contentParts, formatted)
+		case "user", "diff", "assistant", "question":
+			contentParts = append(contentParts, decorate(part.Type, part.Content, part.Meta))
 
 		case "tool_result":
-			// Tool result output: already formatted by ShellFormatter
+			// Tool result output: already formatted by ShellFormatter --
+			// identical on every surface, so it bypasses the decorator.
 			contentParts = append(contentParts, part.Content)
-
-		case "question":
-			contentParts = append(contentParts, fmt.Sprintf("[yellow][?][-] %s", part.Content))
 		}
 	}
 

@@ -1,4 +1,4 @@
-package main
+package engine
 
 // ImageData holds payload for BlockContentImage blocks
 type ImageData struct {
@@ -13,6 +13,11 @@ type VideoData struct {
 	Src    string // File path (server mode) or data URI (static mode)
 	MIME   string // e.g. "video/mp4"
 	Inline bool   // true = data URI, false = file path
+
+	// Warning carries a non-fatal condition (e.g. too large to inline) for
+	// the HOST to surface. The engine is a library: it never writes to
+	// stderr itself.
+	Warning string
 }
 
 // CsvData holds payload for BlockContentCSV blocks

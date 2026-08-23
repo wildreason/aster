@@ -158,6 +158,7 @@ func renderForPush(filePath string) (string, string, error) {
 		if err != nil {
 			return "", "", err
 		}
+		surfaceEngineWarnings(blocks)
 		return RenderStaticHTMLPage(filepath.Base(filePath), blocks, false), "html", nil
 	}
 

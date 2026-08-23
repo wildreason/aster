@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"strings"
@@ -318,21 +318,21 @@ func isFenceMarker(line string) bool {
 
 // BlockIndex maps block names to blocks for quick lookup
 type BlockIndex struct {
-	blocks    []Block
-	nameIndex map[string]int
+	Blocks    []Block
+	NameIndex map[string]int
 }
 
 // NewBlockIndex creates an index from blocks
 func NewBlockIndex(blocks []Block) *BlockIndex {
 	index := &BlockIndex{
-		blocks:    blocks,
-		nameIndex: make(map[string]int),
+		Blocks:    blocks,
+		NameIndex: make(map[string]int),
 	}
 
 	// Build name index (case-insensitive for easier lookup)
 	for i, block := range blocks {
 		lowerName := strings.ToLower(block.Name)
-		index.nameIndex[lowerName] = i
+		index.NameIndex[lowerName] = i
 	}
 
 	return index
@@ -343,13 +343,13 @@ func (bi *BlockIndex) FindBlock(query string) *Block {
 	query = strings.ToLower(strings.TrimSpace(query))
 
 	// Exact match first
-	if idx, ok := bi.nameIndex[query]; ok {
-		return &bi.blocks[idx]
+	if idx, ok := bi.NameIndex[query]; ok {
+		return &bi.Blocks[idx]
 	}
 
 	// Fuzzy match: find blocks that contain the query
 	var matches []int
-	for i, block := range bi.blocks {
+	for i, block := range bi.Blocks {
 		if strings.Contains(strings.ToLower(block.Name), query) {
 			matches = append(matches, i)
 		}
@@ -357,7 +357,7 @@ func (bi *BlockIndex) FindBlock(query string) *Block {
 
 	if len(matches) > 0 {
 		// Return the first (best) match
-		return &bi.blocks[matches[0]]
+		return &bi.Blocks[matches[0]]
 	}
 
 	return nil
@@ -365,8 +365,8 @@ func (bi *BlockIndex) FindBlock(query string) *Block {
 
 // GetBlockByPosition returns block at given position in document
 func (bi *BlockIndex) GetBlockByPosition(pos int) *Block {
-	if pos >= 0 && pos < len(bi.blocks) {
-		return &bi.blocks[pos]
+	if pos >= 0 && pos < len(bi.Blocks) {
+		return &bi.Blocks[pos]
 	}
 	return nil
 }
@@ -374,9 +374,9 @@ func (bi *BlockIndex) GetBlockByPosition(pos int) *Block {
 // NextBlock returns the next block after the given block name
 func (bi *BlockIndex) NextBlock(currentName string) *Block {
 	currentName = strings.ToLower(currentName)
-	if idx, ok := bi.nameIndex[currentName]; ok {
-		if idx+1 < len(bi.blocks) {
-			return &bi.blocks[idx+1]
+	if idx, ok := bi.NameIndex[currentName]; ok {
+		if idx+1 < len(bi.Blocks) {
+			return &bi.Blocks[idx+1]
 		}
 	}
 	return nil
@@ -385,9 +385,9 @@ func (bi *BlockIndex) NextBlock(currentName string) *Block {
 // PrevBlock returns the previous block before the given block name
 func (bi *BlockIndex) PrevBlock(currentName string) *Block {
 	currentName = strings.ToLower(currentName)
-	if idx, ok := bi.nameIndex[currentName]; ok {
+	if idx, ok := bi.NameIndex[currentName]; ok {
 		if idx > 0 {
-			return &bi.blocks[idx-1]
+			return &bi.Blocks[idx-1]
 		}
 	}
 	return nil
@@ -395,8 +395,8 @@ func (bi *BlockIndex) PrevBlock(currentName string) *Block {
 
 // GetAllBlockNames returns a list of all block names
 func (bi *BlockIndex) GetAllBlockNames() []string {
-	names := make([]string, len(bi.blocks))
-	for i, block := range bi.blocks {
+	names := make([]string, len(bi.Blocks))
+	for i, block := range bi.Blocks {
 		names[i] = block.Name
 	}
 	return names

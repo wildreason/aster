@@ -10,7 +10,6 @@ import (
 	"golang.org/x/term"
 )
 
-var imageExtensions = []string{".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".svg"}
 
 func imgTermWidth() string {
 	if term.IsTerminal(int(os.Stdout.Fd())) {

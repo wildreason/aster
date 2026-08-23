@@ -58,43 +58,7 @@ func (b *sseBroadcaster) notify() {
 	}
 }
 
-// imageMIME returns the MIME type for an image extension
-func imageMIME(ext string) string {
-	switch strings.ToLower(ext) {
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	case ".webp":
-		return "image/webp"
-	case ".svg":
-		return "image/svg+xml"
-	case ".bmp":
-		return "image/bmp"
-	case ".ico":
-		return "image/x-icon"
-	default:
-		return "application/octet-stream"
-	}
-}
 
-// videoMIME returns the MIME type for a video extension
-func videoMIME(ext string) string {
-	switch strings.ToLower(ext) {
-	case ".mp4":
-		return "video/mp4"
-	case ".webm":
-		return "video/webm"
-	case ".mov":
-		return "video/quicktime"
-	case ".mkv":
-		return "video/x-matroska"
-	default:
-		return "application/octet-stream"
-	}
-}
 
 // serveHTMLAsync starts an HTTP server on the given port and returns an error
 // instead of calling os.Exit. The stopCh can be closed to signal shutdown.

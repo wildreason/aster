@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-var videoExtensions = []string{".mp4", ".webm", ".mov", ".mkv"}
 
 func viewVideo(path string) {
 	info, err := os.Stat(path)

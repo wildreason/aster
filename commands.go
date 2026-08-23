@@ -47,7 +47,7 @@ func (nav *Navigator) ExecuteCommand(cmd *Command) (string, *Block, bool) {
 
 // handleNext jumps to the next block
 func (nav *Navigator) handleNext() (string, *Block, bool) {
-	if nav.currentPos+1 >= len(nav.index.blocks) {
+	if nav.currentPos+1 >= len(nav.index.Blocks) {
 		return "Already at the last block.", nil, false
 	}
 
@@ -93,7 +93,7 @@ func (nav *Navigator) GetCurrentPosition() int {
 
 // GetTotalBlocks returns total number of blocks
 func (nav *Navigator) GetTotalBlocks() int {
-	return len(nav.index.blocks)
+	return len(nav.index.Blocks)
 }
 
 // GetCurrentPage returns the current page (0-indexed)

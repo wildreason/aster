@@ -27,7 +27,7 @@ func watchFile(filePath string, jsonlParser *JSONLParser, index *BlockIndex, nav
 
 	buf := make([]byte, 4096)
 	var partial string
-	turnNumber := len(index.blocks)
+	turnNumber := len(index.Blocks)
 	var currentTurn *ConversationTurn
 	var currentBlockIdx int = -1
 
@@ -41,8 +41,8 @@ func watchFile(filePath string, jsonlParser *JSONLParser, index *BlockIndex, nav
 			return
 		}
 		newBlock := jsonlParser.CreateTurnBlock(currentTurn, turnNumber)
-		index.blocks[currentBlockIdx] = newBlock
-		index.nameIndex[strings.ToLower(newBlock.Name)] = currentBlockIdx
+		index.Blocks[currentBlockIdx] = newBlock
+		index.NameIndex[strings.ToLower(newBlock.Name)] = currentBlockIdx
 		onNewBlock()
 	}
 
@@ -137,9 +137,9 @@ func watchFile(filePath string, jsonlParser *JSONLParser, index *BlockIndex, nav
 						LineNum: 0,
 					}
 					newBlock := jsonlParser.CreateTurnBlock(currentTurn, turnNumber)
-					index.blocks = append(index.blocks, newBlock)
-					currentBlockIdx = len(index.blocks) - 1
-					index.nameIndex[strings.ToLower(newBlock.Name)] = currentBlockIdx
+					index.Blocks = append(index.Blocks, newBlock)
+					currentBlockIdx = len(index.Blocks) - 1
+					index.NameIndex[strings.ToLower(newBlock.Name)] = currentBlockIdx
 					onNewBlock()
 				}
 				continue
@@ -203,7 +203,7 @@ func runFollowMode(filePath string, fileContent string, isJSONL bool, termWidth 
 
 	// Parse initial blocks
 	if isJSONL {
-		jsonlParser = &JSONLParser{}
+		jsonlParser = &JSONLParser{Decorate: tuiDecoratePart}
 		filters := showContentSelector(fileContent)
 		jsonlParser.Filters = filters
 		blocks = jsonlParser.Parse(fileContent)
@@ -229,7 +229,7 @@ func runFollowMode(filePath string, fileContent string, isJSONL bool, termWidth 
 	textView.SetBorderPadding(0, 0, 2, 2)
 
 	// Start at last block (follow mode shows latest)
-	navigator.currentPos = len(index.blocks) - 1
+	navigator.currentPos = len(index.Blocks) - 1
 	currentBlock := navigator.GetCurrentBlock()
 	if currentBlock != nil {
 		navigator.currentPage = currentBlock.TotalPages - 1
@@ -242,7 +242,7 @@ func runFollowMode(filePath string, fileContent string, isJSONL bool, termWidth 
 
 	onNewBlock := func() {
 		app.QueueUpdateDraw(func() {
-			navigator.currentPos = len(index.blocks) - 1
+			navigator.currentPos = len(index.Blocks) - 1
 			currentBlock := navigator.GetCurrentBlock()
 			if currentBlock != nil {
 				navigator.currentPage = currentBlock.TotalPages - 1
@@ -258,10 +258,10 @@ func runFollowMode(filePath string, fileContent string, isJSONL bool, termWidth 
 		} else {
 			go watchGenericFile(filePath, func(newBlocks []Block) {
 				app.QueueUpdateDraw(func() {
-					index.blocks = newBlocks
-					index.nameIndex = make(map[string]int)
+					index.Blocks = newBlocks
+					index.NameIndex = make(map[string]int)
 					for i, b := range newBlocks {
-						index.nameIndex[strings.ToLower(b.Name)] = i
+						index.NameIndex[strings.ToLower(b.Name)] = i
 					}
 					navigator.currentPos = len(newBlocks) - 1
 					navigator.currentPage = 0

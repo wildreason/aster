@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"encoding/base64"
@@ -37,9 +37,10 @@ func (p *VideoParser) ParseFile(filePath string, static bool) ([]Block, error) {
 
 	title := filepath.Base(filePath)
 	ext := filepath.Ext(filePath)
-	mime := videoMIME(ext)
+	mime := VideoMIME(ext)
 
 	var src string
+	var warning string
 	inline := false
 
 	if static {
@@ -50,8 +51,10 @@ func (p *VideoParser) ParseFile(filePath string, static bool) ([]Block, error) {
 
 		const maxInlineSize = 10 * 1024 * 1024 // 10MB
 		if info.Size() >= maxInlineSize {
-			fmt.Fprintf(os.Stderr, "Warning: %s is %dMB, too large to inline as base64. Referencing file path.\n",
-				title, info.Size()/(1024*1024))
+			// Too large to inline: fall back to a path reference and record
+			// the condition for the host to surface (a library never writes
+			// to its host's stderr).
+			warning = fmt.Sprintf("%s is %dMB, too large to inline as base64; referencing file path", title, info.Size()/(1024*1024))
 			src = absPath
 			inline = false
 		} else {
@@ -74,9 +77,10 @@ func (p *VideoParser) ParseFile(filePath string, static bool) ([]Block, error) {
 		TotalPages:  1,
 		ContentType: BlockContentVideo,
 		Data: &VideoData{
-			Src:    src,
-			MIME:   mime,
-			Inline: inline,
+			Src:     src,
+			MIME:    mime,
+			Inline:  inline,
+			Warning: warning,
 		},
 	}
 

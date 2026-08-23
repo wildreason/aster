@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -73,24 +72,7 @@ var validTypes = func() map[string]bool {
 	return m
 }()
 
-// fileType defines a supported file type with its extensions
-type fileType struct {
-	name       string
-	extensions []string
-}
 
-var fileTypes = map[string]fileType{
-	"md":    {name: "markdown", extensions: []string{".md", ".markdown"}},
-	"img":   {name: "image", extensions: imageExtensions},
-	"vid":   {name: "video", extensions: videoExtensions},
-	"txt":   {name: "text", extensions: []string{".txt", ".log"}},
-	"json":  {name: "json", extensions: []string{".json"}},
-	"yaml":  {name: "yaml", extensions: []string{".yaml", ".yml"}},
-	"diff":  {name: "diff", extensions: []string{".diff", ".patch"}},
-	"jsonl": {name: "jsonl", extensions: []string{".jsonl"}},
-	"csv":   {name: "csv", extensions: []string{".csv", ".tsv"}},
-	"html":  {name: "html", extensions: []string{".html", ".htm", ".xhtml"}},
-}
 
 func detectTerminalWidth() int {
 	if term.IsTerminal(int(os.Stdout.Fd())) {
@@ -134,88 +116,8 @@ func parsePositiveInt(s string) (int, error) {
 	return n, nil
 }
 
-// detectFileType returns the type key for a file path based on extension
-func detectFileType(filePath string) string {
-	ext := strings.ToLower(filepath.Ext(filePath))
-	for key, ft := range fileTypes {
-		for _, e := range ft.extensions {
-			if ext == e {
-				return key
-			}
-		}
-	}
-	return ""
-}
 
-// detectParser selects the appropriate parser based on file extension
-func detectParser(filePath string) Parser {
-	parsers := []Parser{
-		&TodoParser{},
-		&DiffParser{},
-		&CsvParser{},
-		&ContractParser{},
-		&HTMLParser{},
-		&MarkdownParser{},
-		&JSONLParser{},
-		&TxtParser{},
-	}
 
-	for _, parser := range parsers {
-		if parser.Detect(filePath) {
-			return parser
-		}
-	}
-
-	return &MarkdownParser{}
-}
-
-// detectParserFromContent tries to detect parser type from content (for stdin)
-func detectParserFromContent(content string) Parser {
-	if DetectBlockContentType(content) == BlockContentDiff {
-		return &DiffParser{}
-	}
-
-	// HTML -> converted to markdown downstream
-	if isHTMLContent(content) {
-		return &HTMLParser{}
-	}
-
-	// Count JSON lines to distinguish JSONL from single JSON
-	lines := strings.Split(content, "\n")
-	jsonLineCount := 0
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		var testJSON map[string]interface{}
-		if err := json.Unmarshal([]byte(line), &testJSON); err == nil {
-			jsonLineCount++
-		} else {
-			break
-		}
-	}
-	if jsonLineCount >= 2 {
-		return &JSONLParser{}
-	}
-
-	// JSON object/array -> plain text (preserves structure)
-	if isJSON(content) {
-		return &TxtParser{}
-	}
-
-	// YAML -> plain text (preserves structure)
-	if isYAML(content) {
-		return &TxtParser{}
-	}
-
-	// CSV -> table
-	if isCSV(content) {
-		return &CsvParser{}
-	}
-
-	return &MarkdownParser{}
-}
 
 func hasStdinData() bool {
 	stat, err := os.Stdin.Stat()
@@ -393,6 +295,7 @@ func viewFile(filePath string) {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
+			surfaceEngineWarnings(blocks)
 			if exportHTML {
 				title := filepath.Base(filePath)
 				outputHTML(RenderStaticHTMLPage(title, blocks, false))
@@ -491,7 +394,7 @@ func viewTextFile(filePath string, forceType string, follow bool) {
 		case "md":
 			parser = &MarkdownParser{}
 		case "jsonl":
-			parser = &JSONLParser{}
+			parser = &JSONLParser{Decorate: tuiDecoratePart}
 			isJSONL = true
 		case "diff":
 			parser = &DiffParser{}
@@ -567,7 +470,7 @@ func viewTextFile(filePath string, forceType string, follow bool) {
 		isCSVType := forceType == "csv" || detectFileType(filePath) == "csv"
 		var blocks []Block
 		if isJSONL {
-			jsonlParser := &JSONLParser{}
+			jsonlParser := &JSONLParser{Decorate: tuiDecoratePart}
 			filters := showContentSelector(fileContent)
 			jsonlParser.Filters = filters
 			blocks = jsonlParser.Parse(fileContent)
@@ -595,7 +498,7 @@ func viewTextFile(filePath string, forceType string, follow bool) {
 
 	var blocks []Block
 	if isJSONL {
-		jsonlParser := &JSONLParser{}
+		jsonlParser := &JSONLParser{Decorate: tuiDecoratePart}
 		filters := showContentSelector(fileContent)
 		jsonlParser.Filters = filters
 		blocks = jsonlParser.Parse(fileContent)
@@ -621,7 +524,7 @@ func viewStdinContent(content string, forceType string) {
 		case "md":
 			parser = &MarkdownParser{}
 		case "jsonl":
-			parser = &JSONLParser{}
+			parser = &JSONLParser{Decorate: tuiDecoratePart}
 			isJSONL = true
 		case "diff":
 			parser = &DiffParser{}
@@ -650,7 +553,7 @@ func viewStdinContent(content string, forceType string) {
 
 	var blocks []Block
 	if isJSONL {
-		jsonlParser := &JSONLParser{}
+		jsonlParser := &JSONLParser{Decorate: tuiDecoratePart}
 		filters := showContentSelector(content)
 		jsonlParser.Filters = filters
 		blocks = jsonlParser.Parse(content)
@@ -897,9 +800,9 @@ func runSubcommand(typeName string, ft fileType, args []string) {
 			return
 		}
 		fmt.Fprintf(os.Stderr, "Usage: aster %s [file | - | +]\n\n", typeName)
-		fmt.Fprintf(os.Stderr, "  aster %s <file>   View %s file\n", typeName, ft.name)
-		fmt.Fprintf(os.Stderr, "  aster %s -        Pick from recent %s files\n", typeName, ft.name)
-		fmt.Fprintf(os.Stderr, "  aster %s +        Open newest %s in cwd\n", typeName, ft.name)
+		fmt.Fprintf(os.Stderr, "  aster %s <file>   View %s file\n", typeName, ft.Name)
+		fmt.Fprintf(os.Stderr, "  aster %s -        Pick from recent %s files\n", typeName, ft.Name)
+		fmt.Fprintf(os.Stderr, "  aster %s +        Open newest %s in cwd\n", typeName, ft.Name)
 		os.Exit(1)
 	}
 
@@ -911,7 +814,7 @@ func runSubcommand(typeName string, ft fileType, args []string) {
 		target = args[1]
 	}
 
-	filePath := resolveShortcut(target, ft.extensions)
+	filePath := resolveShortcut(target, ft.Extensions)
 	if filePath == "" {
 		fmt.Fprintf(os.Stderr, "Usage: aster %s [file | - | +]\n", typeName)
 		os.Exit(0)
@@ -943,6 +846,7 @@ func runSubcommand(typeName string, ft fileType, args []string) {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
+			surfaceEngineWarnings(blocks)
 			if exportHTML {
 				outputHTML(RenderStaticHTMLPage(filepath.Base(filePath), blocks, false))
 			} else {

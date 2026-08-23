@@ -1,4 +1,4 @@
-module github.com/wildreason/reader
+module github.com/wildreason/aster
 
 go 1.24.4
 

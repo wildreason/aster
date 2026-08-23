@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"encoding/base64"
@@ -37,7 +37,7 @@ func (p *ImageParser) ParseFile(filePath string, static bool) ([]Block, error) {
 
 	title := filepath.Base(filePath)
 	ext := filepath.Ext(filePath)
-	mime := imageMIME(ext)
+	mime := ImageMIME(ext)
 
 	var src string
 	inline := false
