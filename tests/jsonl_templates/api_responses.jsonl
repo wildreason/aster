@@ -1,0 +1,5 @@
+{"id":1,"name":"Alice Chen","email":"alice@example.com","role":"admin","created":"2026-01-15","active":true}
+{"id":2,"name":"Bob Park","email":"bob@example.com","role":"editor","created":"2026-01-20","active":true}
+{"id":3,"name":"Carol Singh","email":"carol@example.com","role":"viewer","created":"2026-02-01","active":false}
+{"id":4,"name":"David Kim","email":"david@example.com","role":"editor","created":"2026-02-10","active":true}
+{"id":5,"name":"Eva Torres","email":"eva@example.com","role":"admin","created":"2026-02-15","active":true}

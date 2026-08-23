@@ -57,20 +57,20 @@ build:
 # Run tests
 test:
 	@if [ "$(VERBOSE)" = "1" ]; then \
-		echo "test go test ./tests/..."; \
-		go test ./tests/...; \
+		echo "test go test ./..."; \
+		go test ./...; \
 	else \
-		echo "test go test ./tests/..."; \
-		go test ./tests/... >/dev/null; \
+		echo "test go test ./..."; \
+		go test ./... >/dev/null; \
 	fi
 
-# Install locally
+# Install locally as aster-local (avoids conflicting with Homebrew aster)
 install: build
 	@killall -9 $(BINARY) 2>/dev/null || true
-	@rm -f ~/.local/bin/$(BINARY) 2>/dev/null || true
+	@rm -f ~/.local/bin/aster-local 2>/dev/null || true
 	@mkdir -p ~/.local/bin
-	@cp $(BINARY) ~/.local/bin/
-	@echo "install ~/.local/bin/$(BINARY)"
+	@cp $(BINARY) ~/.local/bin/aster-local
+	@echo "install ~/.local/bin/aster-local"
 
 # Clean build artifacts
 clean:
@@ -90,7 +90,7 @@ release:
 		git status --short; \
 		exit 1; \
 	fi
-	@if ! go test ./tests/... >/dev/null 2>&1; then \
+	@if ! go test ./... >/dev/null 2>&1; then \
 		echo "error: tests failed"; \
 		exit 1; \
 	fi

@@ -1,0 +1,8 @@
+{"timestamp":"2026-02-26T10:00:01Z","level":"info","service":"api","message":"Server started on :8080"}
+{"timestamp":"2026-02-26T10:00:02Z","level":"info","service":"api","message":"Connected to database","host":"db.internal","latency_ms":45}
+{"timestamp":"2026-02-26T10:00:15Z","level":"warn","service":"api","message":"Slow query detected","query":"SELECT * FROM users WHERE active=true","duration_ms":1250}
+{"timestamp":"2026-02-26T10:00:16Z","level":"info","service":"auth","message":"User login","user_id":"usr_abc123","ip":"192.168.1.50"}
+{"timestamp":"2026-02-26T10:00:20Z","level":"error","service":"api","message":"Failed to process payment","error":"timeout waiting for stripe","order_id":"ord_789","amount":4999}
+{"timestamp":"2026-02-26T10:00:21Z","level":"info","service":"api","message":"Health check passed","uptime_seconds":20}
+{"timestamp":"2026-02-26T10:00:30Z","level":"warn","service":"auth","message":"Rate limit approaching","user_id":"usr_abc123","requests_per_min":58,"limit":60}
+{"timestamp":"2026-02-26T10:00:45Z","level":"error","service":"worker","message":"Job failed","job_id":"job_456","retry":3,"max_retries":5,"error":"connection reset by peer"}

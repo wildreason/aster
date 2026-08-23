@@ -1,0 +1,8 @@
+{"event":"page_view","page":"/","user_id":"u_001","session":"s_aaa","ts":"2026-02-26T09:00:00Z","referrer":"google.com","device":"desktop"}
+{"event":"page_view","page":"/pricing","user_id":"u_001","session":"s_aaa","ts":"2026-02-26T09:00:12Z","referrer":"/","device":"desktop"}
+{"event":"click","page":"/pricing","element":"#start-trial","user_id":"u_001","session":"s_aaa","ts":"2026-02-26T09:00:18Z"}
+{"event":"signup","user_id":"u_001","plan":"trial","ts":"2026-02-26T09:00:25Z","source":"organic"}
+{"event":"page_view","page":"/","user_id":"u_002","session":"s_bbb","ts":"2026-02-26T09:01:00Z","referrer":"twitter.com","device":"mobile"}
+{"event":"page_view","page":"/docs","user_id":"u_002","session":"s_bbb","ts":"2026-02-26T09:01:30Z","referrer":"/","device":"mobile"}
+{"event":"page_view","page":"/docs/api","user_id":"u_002","session":"s_bbb","ts":"2026-02-26T09:02:00Z","referrer":"/docs","device":"mobile"}
+{"event":"error","page":"/docs/api","user_id":"u_002","session":"s_bbb","ts":"2026-02-26T09:02:10Z","error":"404 endpoint not found","path":"/api/v2/users"}

@@ -10,6 +10,7 @@ brew install wildreason/tap/aster
 
 ```bash
 aster readme.md                    # Markdown with colors and tables
+aster page.html                    # HTML rendered as readable text
 aster screenshot.png               # Image inline (iTerm2, Kitty, WezTerm)
 aster changes.patch                # Diff with syntax highlighting
 aster data.csv                     # CSV as formatted table
@@ -26,7 +27,8 @@ Pipe support:
 ```bash
 git diff | aster
 curl -s api.example.com | aster
-cat log.jsonl | aster -t jsonl
+cat log.jsonl | aster --type jsonl
+curl -s example.com | aster        # HTML auto-detected
 ```
 
 ## Browser
@@ -47,6 +49,7 @@ Web features: live reload (SSE), syntax highlighting, copy button on code blocks
 | Format | Extensions |
 |--------|-----------|
 | Markdown | `.md` `.markdown` |
+| HTML | `.html` `.htm` `.xhtml` |
 | CSV / TSV | `.csv` `.tsv` |
 | Unified diffs | `.diff` `.patch` |
 | JSON | `.json` |
@@ -56,7 +59,9 @@ Web features: live reload (SSE), syntax highlighting, copy button on code blocks
 | Video | `.mp4` `.webm` `.mov` |
 | Plain text | `.txt` `.log` |
 
-Auto-detected from extension. Override with `-t TYPE`.
+Auto-detected from extension. Override with `--type TYPE`.
+
+HTML is converted to markdown by a built-in tokenizer (no external dependency), then rendered like any other document: headings, lists, tables, code blocks, links and images all survive the trip.
 
 ## Flags
 
@@ -64,7 +69,8 @@ Auto-detected from extension. Override with `-t TYPE`.
 --share      Open rendered HTML in the default browser
 --port N     Serve as web page on localhost:N
 --html       Export self-contained HTML to stdout
--t TYPE      Force content type (md, json, jsonl, diff, txt, yaml, csv)
+-t           Render in the terminal instead of the browser
+--type TYPE  Force content type (md, html, json, jsonl, diff, txt, yaml, csv)
 -n           Show source line numbers in gutter
 -f           Follow mode (watch file for changes)
 ```

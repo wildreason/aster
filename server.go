@@ -116,6 +116,11 @@ func serveHTMLAsync(filePath string, blocks []Block, port int, stopCh <-chan str
 		blocks[0].Pages = []string{body}
 	}
 
+	// A title the document declares outranks the filename
+	if docTitle != "" {
+		title = docTitle
+	}
+
 	// Initial render
 	currentHTML = RenderHTMLPage(title, blocks, showLineNumbers)
 

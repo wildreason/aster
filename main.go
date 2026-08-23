@@ -55,8 +55,23 @@ func outputHTML(html string) {
 	exec.Command("open", f.Name()).Start()
 }
 
-// forceType overrides content type detection (-t TYPE flag)
+// forceType overrides content type detection (--type TYPE flag)
 var forceType string
+
+// docTitle is a page title declared by the document itself (HTML <title>).
+// It outranks the filename on every rendered surface.
+var docTitle string
+
+// validTypeNames lists the content types --type accepts, in help order
+var validTypeNames = []string{"md", "html", "json", "jsonl", "diff", "txt", "yaml", "csv"}
+
+var validTypes = func() map[string]bool {
+	m := make(map[string]bool, len(validTypeNames))
+	for _, t := range validTypeNames {
+		m[t] = true
+	}
+	return m
+}()
 
 // fileType defines a supported file type with its extensions
 type fileType struct {
@@ -74,6 +89,7 @@ var fileTypes = map[string]fileType{
 	"diff":  {name: "diff", extensions: []string{".diff", ".patch"}},
 	"jsonl": {name: "jsonl", extensions: []string{".jsonl"}},
 	"csv":   {name: "csv", extensions: []string{".csv", ".tsv"}},
+	"html":  {name: "html", extensions: []string{".html", ".htm", ".xhtml"}},
 }
 
 func detectTerminalWidth() int {
@@ -138,6 +154,7 @@ func detectParser(filePath string) Parser {
 		&DiffParser{},
 		&CsvParser{},
 		&ContractParser{},
+		&HTMLParser{},
 		&MarkdownParser{},
 		&JSONLParser{},
 		&TxtParser{},
@@ -156,6 +173,11 @@ func detectParser(filePath string) Parser {
 func detectParserFromContent(content string) Parser {
 	if DetectBlockContentType(content) == BlockContentDiff {
 		return &DiffParser{}
+	}
+
+	// HTML -> converted to markdown downstream
+	if isHTMLContent(content) {
+		return &HTMLParser{}
 	}
 
 	// Count JSON lines to distinguish JSONL from single JSON
@@ -481,10 +503,19 @@ func viewTextFile(filePath string, forceType string, follow bool) {
 			parser = &TxtParser{}
 		case "csv":
 			parser = &CsvParser{}
+		case "html":
+			parser = &HTMLParser{}
 		}
 	} else {
 		parser = detectParser(filePath)
 		_, isJSONL = parser.(*JSONLParser)
+	}
+
+	// HTML is converted to markdown before Parse, so every downstream surface
+	// (terminal, --port, --html, --share) renders it through the same pipeline
+	if _, isHTML := parser.(*HTMLParser); isHTML {
+		fileContent, docTitle = HTMLToMarkdown(fileContent)
+		parser = &MarkdownParser{}
 	}
 
 	if follow && servePort == 0 {
@@ -519,6 +550,9 @@ func viewTextFile(filePath string, forceType string, follow bool) {
 		fm, body := ParseFrontmatter(fileContent)
 		if fm.Title != "" {
 			title = fm.Title
+		}
+		if docTitle != "" {
+			title = docTitle
 		}
 		if !isJSONL && !isCSVType && !isContract {
 			blocks[0].Content = body
@@ -599,12 +633,19 @@ func viewStdinContent(content string, forceType string) {
 			parser = &TxtParser{}
 		case "csv":
 			parser = &CsvParser{}
+		case "html":
+			parser = &HTMLParser{}
 		default:
 			parser = &MarkdownParser{}
 		}
 	} else {
 		parser = detectParserFromContent(content)
 		_, isJSONL = parser.(*JSONLParser)
+	}
+
+	if _, isHTML := parser.(*HTMLParser); isHTML {
+		content, docTitle = HTMLToMarkdown(content)
+		parser = &MarkdownParser{}
 	}
 
 	var blocks []Block
@@ -622,7 +663,11 @@ func viewStdinContent(content string, forceType string) {
 
 	// Static HTML export
 	if exportHTML {
-		outputHTML(RenderStaticHTMLPage("stdin", blocks, showLineNumbers))
+		title := "stdin"
+		if docTitle != "" {
+			title = docTitle
+		}
+		outputHTML(RenderStaticHTMLPage(title, blocks, showLineNumbers))
 		return
 	}
 
@@ -645,16 +690,19 @@ func printUsage() {
 	fmt.Fprintln(w, "  aster <file> -t       View file in terminal")
 	fmt.Fprintln(w, "  aster pick            Pick from recent files")
 	fmt.Fprintln(w, "  aster latest          Open newest file in current directory")
+	fmt.Fprintln(w, "  aster push <file>     Publish rendered output to a stable web address")
+	fmt.Fprintln(w, "                        (re-push updates the same URL; --as KEY, --title T)")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Flags:")
-	fmt.Fprintln(w, "  -t                    Render in terminal instead of browser")
-	fmt.Fprintln(w, "  -t TYPE               Force content type (md, json, jsonl, diff, txt, yaml, csv)")
+	fmt.Fprintln(w, "  -t, --terminal        Render in terminal instead of browser")
+	fmt.Fprintln(w, "  --type TYPE           Force content type (md, html, json, jsonl, diff, txt, yaml, csv)")
 	fmt.Fprintln(w, "  -n                    Show source file line numbers")
 	fmt.Fprintln(w, "  --port N              Serve rendered HTML on localhost:N")
 	fmt.Fprintln(w, "  --html                Export self-contained HTML to stdout")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Supported formats:")
 	fmt.Fprintln(w, "  Markdown        .md .markdown")
+	fmt.Fprintln(w, "  HTML            .html .htm .xhtml")
 	fmt.Fprintln(w, "  Plain text      .txt .log")
 	fmt.Fprintln(w, "  Unified diffs   .diff .patch")
 	fmt.Fprintln(w, "  JSON            .json")
@@ -673,11 +721,13 @@ func printUsage() {
 	fmt.Fprintln(w, "Piping:")
 	fmt.Fprintln(w, "  git diff HEAD~3 | aster           Auto-detect and render diff")
 	fmt.Fprintln(w, "  curl api.com/data | aster         Auto-detect JSON")
-	fmt.Fprintln(w, "  cat log.jsonl | aster -t jsonl    Force content type")
+	fmt.Fprintln(w, "  cat log.jsonl | aster --type jsonl Force content type")
+	fmt.Fprintln(w, "  curl example.com | aster          Auto-detect and render HTML")
 	fmt.Fprintln(w, "  aster file.md | head -20          Passthrough when piped out")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Examples:")
 	fmt.Fprintln(w, "  aster readme.md               View markdown with colors and tables")
+	fmt.Fprintln(w, "  aster page.html               Render HTML as readable text")
 	fmt.Fprintln(w, "  aster screenshot.png          Render image inline")
 	fmt.Fprintln(w, "  aster changes.patch           View diff with syntax highlighting")
 	fmt.Fprintln(w, "  aster pick                    Choose from recently viewed files")
@@ -692,34 +742,61 @@ func main() {
 	// Parse flags early (before other arg processing)
 	var cleanArgs []string
 	args := os.Args[1:]
-	validTypes := map[string]bool{"md": true, "json": true, "jsonl": true, "diff": true, "txt": true, "yaml": true, "csv": true}
 	for i := 0; i < len(args); i++ {
-		if args[i] == "-n" {
+		switch {
+		case args[i] == "-n":
 			showLineNumbers = true
-		} else if args[i] == "--html" {
+
+		case args[i] == "--html":
 			exportHTML = true
-		} else if args[i] == "--share" {
+
+		case args[i] == "--share":
 			shareFlag = true
-		} else if args[i] == "--port" && i+1 < len(args) {
-			if p, err := parsePositiveInt(args[i+1]); err == nil {
-				servePort = p
-			} else {
+
+		case args[i] == "--port" && i+1 < len(args):
+			p, err := parsePositiveInt(args[i+1])
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: --port requires a positive integer\n")
 				os.Exit(1)
 			}
+			servePort = p
 			i++ // skip the port number
-		} else if args[i] == "-t" {
-			if i+1 < len(args) && validTypes[args[i+1]] {
-				forceType = args[i+1]
+
+		case args[i] == "-t" || args[i] == "--terminal":
+			// -t selects the output surface and consumes nothing. A type name
+			// after it (aster -t md file.md) stays in the args, where the
+			// subcommand dispatcher picks it up.
+			terminalFlag = true
+
+		case args[i] == "--type" || strings.HasPrefix(args[i], "--type="):
+			value := ""
+			if after, ok := strings.CutPrefix(args[i], "--type="); ok {
+				value = after
+			} else if i+1 < len(args) {
+				value = args[i+1]
 				i++ // skip the type value
-			} else {
-				terminalFlag = true
 			}
-		} else {
+			if !validTypes[value] {
+				fmt.Fprintf(os.Stderr, "Error: --type expects one of: %s\n", strings.Join(validTypeNames, ", "))
+				os.Exit(1)
+			}
+			forceType = value
+
+		default:
 			cleanArgs = append(cleanArgs, args[i])
 		}
 	}
 	os.Args = append([]string{os.Args[0]}, cleanArgs...)
+
+	// "aster file.md -t md" used to force a content type. -t no longer takes a
+	// value and nothing else reads a trailing type name, so say so rather than
+	// ignoring it.
+	for _, arg := range cleanArgs[min(1, len(cleanArgs)):] {
+		if validTypes[arg] {
+			fmt.Fprintf(os.Stderr, "Error: stray argument %q. Use --type %s to force content type.\n", arg, arg)
+			os.Exit(1)
+		}
+	}
 
 	if shareFlag {
 		exportHTML = true
@@ -762,6 +839,10 @@ func main() {
 			}
 			fmt.Printf("Opening: %s\n", path)
 			viewFile(path)
+			return
+		case first == "push":
+			TrackUsage("push")
+			runPush(os.Args[2:])
 			return
 		}
 

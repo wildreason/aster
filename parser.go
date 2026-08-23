@@ -135,13 +135,13 @@ func (p *MarkdownParser) ParseContinuous(content string, termHeight int) []Block
 		headerAtLine[i] = headerState{h1: currentH1, h2: currentH2}
 	}
 
-	// Split into pages
-	pages := splitIntoPages(lines, linesPerPage)
+	// Split into pages, never cutting a fenced code block in half
+	pages, pageStarts := splitIntoPagesFenceAware(lines, linesPerPage)
 
 	// Build breadcrumb for each page based on first line of page
 	pageMeta := make([]string, len(pages))
-	lineIndex := 0
 	for i := range pages {
+		lineIndex := pageStarts[i]
 		if lineIndex < len(headerAtLine) {
 			state := headerAtLine[lineIndex]
 			if state.h1 != "" && state.h2 != "" {
@@ -154,13 +154,12 @@ func (p *MarkdownParser) ParseContinuous(content string, termHeight int) []Block
 				pageMeta[i] = "Document"
 			}
 		}
-		lineIndex += linesPerPage
 	}
 
 	// Compute PageStartLine for line number display
 	pageStartLine := make([]int, len(pages))
 	for i := range pageStartLine {
-		pageStartLine[i] = 1 + i*linesPerPage
+		pageStartLine[i] = 1 + pageStarts[i]
 	}
 
 	return []Block{{
@@ -252,6 +251,69 @@ func splitIntoPages(lines []string, linesPerPage int) []string {
 	}
 
 	return pages
+}
+
+// splitIntoPagesFenceAware splits lines into pages of at most linesPerPage,
+// never breaking inside a fenced code block. Returns the pages alongside the
+// 0-indexed first line of each, since pages are no longer uniform.
+func splitIntoPagesFenceAware(lines []string, linesPerPage int) ([]string, []int) {
+	if len(lines) == 0 {
+		return []string{""}, []int{0}
+	}
+
+	var pages []string
+	var starts []int
+
+	for i := 0; i < len(lines); {
+		end := i + linesPerPage
+		if end >= len(lines) {
+			end = len(lines)
+		} else {
+			end = adjustPageBreak(lines, i, end)
+		}
+		pages = append(pages, strings.Join(lines[i:end], "\n"))
+		starts = append(starts, i)
+		i = end
+	}
+
+	return pages, starts
+}
+
+// adjustPageBreak moves a break that would land inside a code fence. A fence
+// opened mid-page moves whole to the next page; one that opened at the top of
+// the page (longer than a page) extends the page to its closing marker.
+func adjustPageBreak(lines []string, start, end int) int {
+	fenceStart := -1
+	for i := start; i < end; i++ {
+		if !isFenceMarker(lines[i]) {
+			continue
+		}
+		if fenceStart < 0 {
+			fenceStart = i
+		} else {
+			fenceStart = -1
+		}
+	}
+
+	if fenceStart < 0 {
+		return end
+	}
+	if fenceStart > start {
+		return fenceStart
+	}
+
+	for i := end; i < len(lines); i++ {
+		if isFenceMarker(lines[i]) {
+			return i + 1
+		}
+	}
+	return len(lines)
+}
+
+// isFenceMarker reports whether a line opens or closes a code fence
+func isFenceMarker(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	return strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~")
 }
 
 // BlockIndex maps block names to blocks for quick lookup

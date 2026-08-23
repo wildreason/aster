@@ -1035,6 +1035,10 @@ func processInlineHTML(text string) string {
 	boldUnderRe := regexp.MustCompile(`__([^_]+)__`)
 	escaped = boldUnderRe.ReplaceAllString(escaped, "<strong>$1</strong>")
 
+	// Strikethrough: ~~text~~
+	strikeRe := regexp.MustCompile(`~~([^~]+)~~`)
+	escaped = strikeRe.ReplaceAllString(escaped, "<del>$1</del>")
+
 	// Italic: *text* (not **)
 	italicRe := regexp.MustCompile(`\*([^*]+)\*`)
 	escaped = italicRe.ReplaceAllString(escaped, "<em>$1</em>")

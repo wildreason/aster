@@ -1,0 +1,8 @@
+{"kind":"config","version":"2.1.0","environment":"production","features":{"dark_mode":true,"beta_api":false}}
+{"kind":"metric","name":"cpu_usage","value":72.5,"unit":"percent","host":"web-01","ts":"2026-02-26T10:00:00Z"}
+{"kind":"metric","name":"memory_mb","value":3840,"unit":"megabytes","host":"web-01","ts":"2026-02-26T10:00:00Z"}
+{"kind":"event","action":"deploy","version":"2.1.1","user":"ci-bot","ts":"2026-02-26T10:05:00Z","files_changed":12}
+{"kind":"metric","name":"cpu_usage","value":89.1,"unit":"percent","host":"web-01","ts":"2026-02-26T10:05:30Z"}
+{"kind":"alert","severity":"warning","message":"CPU above 85%","host":"web-01","ts":"2026-02-26T10:05:30Z","threshold":85}
+{"kind":"metric","name":"cpu_usage","value":45.2,"unit":"percent","host":"web-01","ts":"2026-02-26T10:10:00Z"}
+{"kind":"event","action":"scale_up","from":2,"to":4,"reason":"auto","ts":"2026-02-26T10:06:00Z"}

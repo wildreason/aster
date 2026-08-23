@@ -818,6 +818,7 @@ func processMarkdownLine(line string, maxWidth int) []string {
 	processed = processLinks(processed)
 	processed = removeMarkdownBold(processed)
 	processed = removeMarkdownItalic(processed)
+	processed = removeMarkdownStrike(processed)
 	processed = processListItems(processed)
 
 	// Determine continuation indent from original line type
@@ -861,6 +862,12 @@ func removeMarkdownBold(text string) string {
 	text = boldUnderscoreRegex.ReplaceAllString(text, boldStart+"$1"+boldEnd)
 
 	return text
+}
+
+// removeMarkdownStrike removes ~~text~~ markers and applies strike-through styling
+func removeMarkdownStrike(text string) string {
+	strikeRegex := regexp.MustCompile(`~~([^~]+)~~`)
+	return strikeRegex.ReplaceAllString(text, "[::s]$1[::S]")
 }
 
 // removeMarkdownItalic removes *text* and _text_ markers and applies italic styling
@@ -942,6 +949,17 @@ func processInlineCode(text string) string {
 // Only shows the link text in blue, hides the URL (still extractable for 'o' key)
 // Note: OSC 8 hyperlinks don't work through tview, so we use keyboard shortcut instead
 func processLinks(text string) string {
+	// Inline images: ![alt](url) - the terminal shows the label, not the image
+	imageRegex := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+)\)`)
+	text = imageRegex.ReplaceAllStringFunc(text, func(m string) string {
+		parts := imageRegex.FindStringSubmatch(m)
+		label := parts[1]
+		if strings.TrimSpace(label) == "" {
+			label = parts[2]
+		}
+		return "[blue]" + label + "[white]"
+	})
+
 	// Match [text](url) pattern
 	linkRegex := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 	// Replace with blue colored format: [blue]text[white]
@@ -1076,11 +1094,24 @@ func parseTableCells(line string) []string {
 	trimmed := strings.TrimSpace(line)
 	trimmed = strings.Trim(trimmed, "|")
 
-	parts := strings.Split(trimmed, "|")
 	var cells []string
-	for _, p := range parts {
-		cells = append(cells, strings.TrimSpace(p))
+	var cur strings.Builder
+	for i := 0; i < len(trimmed); i++ {
+		// A backslash-escaped pipe is cell content, not a separator
+		if trimmed[i] == '\\' && i+1 < len(trimmed) && trimmed[i+1] == '|' {
+			cur.WriteByte('|')
+			i++
+			continue
+		}
+		if trimmed[i] == '|' {
+			cells = append(cells, strings.TrimSpace(cur.String()))
+			cur.Reset()
+			continue
+		}
+		cur.WriteByte(trimmed[i])
 	}
+	cells = append(cells, strings.TrimSpace(cur.String()))
+
 	return cells
 }
 
