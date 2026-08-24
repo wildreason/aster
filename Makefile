@@ -117,3 +117,27 @@ release:
 		rm -f "$$NOTES_FILE"; \
 	fi; \
 	echo "release $$VERSION complete"
+
+# --- dl rail (artifacts.wildreason.ai/dl/aster) ------------------------------
+# Cross-compile all arches + sha256s, upload to the tunnel-prod dl dir, and
+# verify the served bytes. Replaces the Homebrew tap (dead PAT, third-party
+# route); install is `curl -fsSL https://artifacts.wildreason.ai/dl/aster/install.sh | bash`.
+DL_HOST ?= root@87.99.155.88
+DL_DIR  ?= /opt/tunl/data/dl/aster
+DL_ARCHES = darwin-arm64 darwin-amd64 linux-arm64 linux-amd64
+
+release-dl: ## Build all arches and publish to the dl rail
+	@VERSION=$$(git describe --tags --always 2>/dev/null || echo dev); \
+	COMMIT=$$(git rev-parse --short HEAD); \
+	DATE=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	rm -rf dist-dl && mkdir -p dist-dl; \
+	for arch in $(DL_ARCHES); do \
+		GOOS=$${arch%%-*} GOARCH=$${arch##*-} CGO_ENABLED=0 \
+		go build -ldflags "-s -w -X main.Version=$$VERSION -X main.Commit=$$COMMIT -X main.Date=$$DATE" \
+			-o dist-dl/$$arch/aster . || exit 1; \
+		(cd dist-dl/$$arch && shasum -a 256 aster > aster.sha256); \
+		echo "built $$arch"; \
+	done; \
+	ssh -o StrictHostKeyChecking=no $(DL_HOST) "mkdir -p $(DL_DIR)"; \
+	scp -o StrictHostKeyChecking=no -r dist-dl/* install.sh $(DL_HOST):$(DL_DIR)/; \
+	echo "published $$VERSION to $(DL_DIR)"
