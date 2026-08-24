@@ -87,8 +87,12 @@ func TestRenderForPushTypeRouting(t *testing.T) {
 		{"page.html", "<!doctype html><title>t</title><p>generated</p>", "html", true},
 		{"chart.svg", `<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`, "svg", true},
 		{"notes.md", "# Heading\n\nbody", "markdown", true},
-		{"data.csv", "a,b\n1,2\n", "html", false},
-		{"changes.diff", "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n", "html", false},
+		// Phase 2: engine types travel RAW -- the host renders them server-side.
+		{"data.csv", "a,b\n1,2\n", "csv", true},
+		{"changes.diff", "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n", "diff", true},
+		{"feed.jsonl", "{\"a\":1}\n", "jsonl", true},
+		{"conf.yaml", "k: v\n", "yaml", true},
+		{"notes.txt", "plain\n", "txt", true},
 	}
 	for _, tc := range cases {
 		p := write(tc.file, tc.content)

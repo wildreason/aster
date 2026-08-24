@@ -131,7 +131,12 @@ func renderForPush(filePath string) (string, string, error) {
 
 	ext := strings.ToLower(filepath.Ext(filePath))
 
-	// Verbatim rails: the doc host owns rendering for these.
+	// Verbatim rails: the doc host owns rendering for these. Since Phase 2
+	// (tunnel-artifacts 7139c71) the host renders csv/diff/jsonl/yaml/txt
+	// through the aster engine server-side, so those travel raw too --
+	// version history diffs the SOURCE, payloads shrink, and every engine
+	// upgrade re-renders old pushes retroactively. Client-side rendering
+	// remains only for images/video (data-URI inlining, binary rail TBD).
 	switch ext {
 	case ".html", ".htm", ".xhtml":
 		data, err := os.ReadFile(filePath)
@@ -142,6 +147,21 @@ func renderForPush(filePath string) (string, string, error) {
 	case ".md", ".markdown":
 		data, err := os.ReadFile(filePath)
 		return string(data), "markdown", err
+	case ".csv", ".tsv":
+		data, err := os.ReadFile(filePath)
+		return string(data), "csv", err
+	case ".diff", ".patch":
+		data, err := os.ReadFile(filePath)
+		return string(data), "diff", err
+	case ".jsonl":
+		data, err := os.ReadFile(filePath)
+		return string(data), "jsonl", err
+	case ".yaml", ".yml":
+		data, err := os.ReadFile(filePath)
+		return string(data), "yaml", err
+	case ".txt", ".log":
+		data, err := os.ReadFile(filePath)
+		return string(data), "txt", err
 	}
 
 	ft := detectFileType(filePath)
