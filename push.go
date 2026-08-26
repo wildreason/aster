@@ -37,6 +37,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -166,7 +167,13 @@ func renderForPush(filePath string) (string, string, error) {
 
 	ft := detectFileType(filePath)
 
-	// Raster images and video: static parse inlines bytes as a data URI.
+	// Raster images and video: static parse inlines bytes as a data URI, then
+	// the page is BARE -- full-bleed media, no heading, no card, no margins
+	// (barath's sill ruling, 2026-08-25: a pushed image is not a document ABOUT
+	// an image, it IS the surface; the doc page's chrome made a square PNG sit
+	// under a filename headline inside a bordered card, which is exactly wrong
+	// in a window that renders it in place). object-fit: contain fills any
+	// frame -- the sill square, the drawer, a full tab -- without cropping.
 	if ft == "img" || ft == "vid" {
 		var parser FileParser
 		if ft == "img" {
@@ -179,6 +186,11 @@ func renderForPush(filePath string) (string, string, error) {
 			return "", "", err
 		}
 		surfaceEngineWarnings(blocks)
+		if page, ok := bareMediaPage(blocks, filepath.Base(filePath)); ok {
+			return page, "html", nil
+		}
+		// No media block surfaced (parse degraded) -- the document page is the
+		// honest fallback rather than an empty white square.
 		return RenderStaticHTMLPage(filepath.Base(filePath), blocks, false), "html", nil
 	}
 
@@ -225,6 +237,29 @@ func renderForPush(filePath string) (string, string, error) {
 		blocks[0].Pages = []string{body}
 	}
 	return RenderStaticHTMLPage(title, blocks, showLineNumbers), "html", nil
+}
+
+// bareMediaPage renders the first image/video block as a full-bleed page:
+// the media is the whole document. Self-contained (the block's Src is a data
+// URI in static mode), sandbox-safe, zero chrome.
+func bareMediaPage(blocks []Block, alt string) (string, bool) {
+	for _, b := range blocks {
+		switch b.ContentType {
+		case BlockContentImage:
+			if d, ok := b.Data.(*ImageData); ok && d.Src != "" {
+				return bareMediaHTML(alt, `<img src="`+html.EscapeString(d.Src)+`" alt="`+html.EscapeString(alt)+`">`), true
+			}
+		case BlockContentVideo:
+			if d, ok := b.Data.(*VideoData); ok && d.Src != "" {
+				return bareMediaHTML(alt, `<video src="`+html.EscapeString(d.Src)+`" controls muted playsinline></video>`), true
+			}
+		}
+	}
+	return "", false
+}
+
+func bareMediaHTML(title, media string) string {
+	return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>` + html.EscapeString(title) + `</title><style>html,body{margin:0;padding:0;height:100%;background:#fff}img,video{display:block;width:100%;height:100%;object-fit:contain}</style></head><body>` + media + `</body></html>`
 }
 
 // runPush handles: aster push <file> [--as <key>] [--title <title>]
